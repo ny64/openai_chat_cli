@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+
+import datetime
+from openai import OpenAI
+import os
+import subprocess
+import sys
+
+client = OpenAI()
+
+CONVERSATIONS_DIRECTORY = "<set directory to store/save conversations>"
+SEP = "\n\n> " # Markdown separator string
+MODEL = "<set openai model (see https://platform.openai.com/docs/models/overview for more information)>"
+COST_PER_1000_TOKENS = 10/1000 # see https://openai.com/pricing
+
+def append_message_to_conversation(conversation_id, sender, message, response=None):
+    if conversation_id == "-":
+        return
+
+    os.makedirs(CONVERSATIONS_DIRECTORY, exist_ok=True)
+    
+    conversation_file = os.path.join(CONVERSATIONS_DIRECTORY, f"{conversation_id}.md")
+    
+    with open(conversation_file, 'a') as file:
+        file.write(f"{SEP}**{sender}:**\n\n {message}")
+        if response:
+            file.write(f"{SEP}**AI:**\n\n {response}")
+
+def get_conversation_history(conversation_id):
+    if conversation_id == "-":
+        return []
+
+    conversation_file = os.path.join(CONVERSATIONS_DIRECTORY, f"{conversation_id}.md")
+    if os.path.exists(conversation_file):
+        with open(conversation_file, 'r') as file:
+            content = file.read().strip().split(SEP)
+            return content
+    return []
+
+def estimate_tokens(text):
+    return len(text) / 4
+
+def should_send_request(estimated_tokens):
+    estimated_cost = (estimated_tokens / 1000) * COST_PER_1000_TOKENS
+    print(f"Estimated cost for this message: ${estimated_cost:.5f}")
+    return estimated_cost <= 0.05 or input("Cost exceeds 5 cents. Proceed? (y/n): ").lower() == 'y'
+
+def handle_conversation(conversation_id, message):
+    conversation_history = get_conversation_history(conversation_id)
+    messages_for_api = []
+    for entry in conversation_history:
+        sender, content = entry.split(":", 1)
+        content = content.strip()
+        if "User" in sender:
+            messages_for_api.append({"role": "user", "content": content})
+        elif "AI" in sender:
+            messages_for_api.append({"role": "assistant", "content": content})
+    
+    messages_for_api.append({"role": "user", "content": message})
+    
+    full_conversation_text = " ".join([m["content"] for m in messages_for_api])
+    estimated_tokens = estimate_tokens(full_conversation_text)
+    
+    if not should_send_request(estimated_tokens):
+        print("Request not sent due to cost concerns.")
+        return
+
+    response = client.chat.completions.create(
+        model=MODEL,
+        messages=messages_for_api
+    )
+    response_content = response.choices[0].message.content
+
+    append_message_to_conversation(conversation_id, "User", message, response_content)
+    
+    response_file = "response.md"
+    with open(response_file, 'w') as file:
+        file.write(f"{response_content}")
+    subprocess.run(["glow", response_file])
+    os.remove(response_file)
+
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        conversation_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        print(f"No conversation ID provided, using ID: {conversation_id}")
+    elif len(sys.argv) == 2:
+        conversation_id = sys.argv[1]
+    else:
+        print("Usage: turbo [<conversation_id>]. Omit <conversation_id> to auto generate id.")
+        sys.exit(1)
+
+    conversation_history = get_conversation_history(conversation_id)
+    if conversation_history:
+        history_file = "temp_conversation_history.md"
+        with open(history_file, 'w') as file:
+            file.write(SEP.join(conversation_history))
+        subprocess.run(["glow", history_file])
+        os.remove(history_file)
+
+    while True:
+        message = input("> ")
+        if message.lower() == 'exit':
+            break
+        handle_conversation(conversation_id, message)
