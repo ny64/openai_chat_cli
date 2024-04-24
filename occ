@@ -98,8 +98,15 @@ if __name__ == "__main__":
         subprocess.run(["glow", history_file])
         os.remove(history_file)
 
+    print("Enter/Paste your content. Begin a new line and Ctrl-D or Ctrl-Z ( windows ) to submit it.\n")
     while True:
-        message = input("> ")
-        if message.lower() == 'exit':
-            break
+        print(">", end=" ")
+        contents = []
+        while True:
+            try:
+                line = input("")
+            except EOFError:
+                break
+            contents.append(line)
+        message = '\n'.join(contents)
         handle_conversation(conversation_id, message)
