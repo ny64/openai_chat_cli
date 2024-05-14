@@ -1,6 +1,8 @@
 # openai_chat_cli
 Chat application in your terminal build with OpenAI and python3
 
+![openai_chat_cli screenshot](screenshot.png)
+
 ## Setup
 
 1. Set <code>OPENAI_API_KEY</code> env variable.
