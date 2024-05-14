@@ -1,0 +1,8 @@
+{
+  "system_message": "Hello! I'm your assistant. How can I help you today?",
+  "max_tokens": null,
+  "temperature": 1,
+  "top_p": 1,
+  "frequency_penalty": 0,
+  "presence_penalty": 0
+}

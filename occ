@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 
 import datetime
+import json
 import os
 import subprocess
 import sys
-
 import tkinter as tk
 from tkinter import scrolledtext
 
@@ -12,14 +12,22 @@ from openai import OpenAI
 
 client = OpenAI()
 
+CONFIG_PATH = "./config.json"
 CONVERSATIONS_DIRECTORY = "<set directory to store/save conversations>"
 SEP = "\n\n> " # Markdown separator string
 MODEL = "<set openai model (see https://platform.openai.com/docs/models/overview for more information)>"
 COST_PER_1000_TOKENS = 10/1000 # see https://openai.com/pricing
 
+
+def load_config():
+    with open(CONFIG_PATH, 'r') as file:
+        return json.load(file)
+
+
+CONFIG = load_config()
+
+
 def append_message_to_conversation(conversation_id, sender, message, response=None):
-    if conversation_id == "-":
-        return
 
     os.makedirs(CONVERSATIONS_DIRECTORY, exist_ok=True)
 
@@ -32,9 +40,6 @@ def append_message_to_conversation(conversation_id, sender, message, response=No
 
 
 def get_conversation_history(conversation_id):
-    if conversation_id == "-":
-        return []
-
     conversation_file = os.path.join(CONVERSATIONS_DIRECTORY, f"{conversation_id}.md")
     if os.path.exists(conversation_file):
         with open(conversation_file, 'r') as file:
@@ -55,7 +60,7 @@ def should_send_request(estimated_tokens):
 
 def handle_conversation(conversation_id, message):
     conversation_history = get_conversation_history(conversation_id)
-    messages_for_api = []
+    messages_for_api = [{"role": "assistant", "content": CONFIG['system_message']}]
     for entry in conversation_history:
         sender, content = entry.split(":", 1)
         content = content.strip()
@@ -75,7 +80,12 @@ def handle_conversation(conversation_id, message):
 
     response = client.chat.completions.create(
         model=MODEL,
-        messages=messages_for_api
+        messages=messages_for_api,
+        temperature=CONFIG['temperature'],
+        max_tokens=CONFIG['max_tokens'],
+        top_p=CONFIG['top_p'],
+        frequency_penalty=CONFIG['frequency_penalty'],
+        presence_penalty=CONFIG['presence_penalty']
     )
     response_content = response.choices[0].message.content
 
@@ -112,7 +122,8 @@ if __name__ == "__main__":
     # create textarea for input
     root = tk.Tk()
     root.title('OCC Text Input')
-    root.geometry(f"{int(int(columns)*7.1)}x220+0+{int(int(rows)*16.8)}")
+    root.geometry(f"{int(int(columns) * 7.1)}x220+0+{int(int(rows) * 16.8)}")
+
 
     def submit_text():
         submit_button.config(state=tk.DISABLED)  # disable submit button
@@ -121,6 +132,7 @@ if __name__ == "__main__":
         print(">", user_input)
         handle_conversation(conversation_id, user_input)
         submit_button.config(state=tk.NORMAL)
+
 
     text_area = scrolledtext.ScrolledText(root, width=10, height=10, wrap=tk.WORD)
     text_area.pack(padx=0, pady=0, fill=tk.BOTH, expand=True)
