@@ -28,7 +28,6 @@ CONFIG = load_config()
 
 
 def append_message_to_conversation(conversation_id, sender, message, response=None):
-
     os.makedirs(CONVERSATIONS_DIRECTORY, exist_ok=True)
 
     conversation_file = os.path.join(CONVERSATIONS_DIRECTORY, f"{conversation_id}.md")
@@ -98,7 +97,18 @@ def handle_conversation(conversation_id, message):
     os.remove(response_file)
 
 
+def compile_pdf():
+    subprocess.run(["pandoc",
+                    Path(CONVERSATIONS_DIRECTORY) / (conversation_id + '.md'),
+                    '-o', conversation_id + '.pdf'])
+
+    subprocess.run(["open", conversation_id + '.pdf'])
+
+
 if __name__ == "__main__":
+
+    global conversation_id
+
     if len(sys.argv) < 2:
         conversation_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         print(f"No conversation ID provided, using ID: {conversation_id}")
@@ -137,7 +147,13 @@ if __name__ == "__main__":
     text_area = scrolledtext.ScrolledText(root, width=10, height=10, wrap=tk.WORD)
     text_area.pack(padx=0, pady=0, fill=tk.BOTH, expand=True)
 
-    submit_button = tk.Button(root, text='Submit', command=submit_text)
-    submit_button.pack(side=tk.BOTTOM, pady=10)
+    button_frame = tk.Frame(root)
+    button_frame.pack(side=tk.BOTTOM, pady=10)
+
+    compile_button = tk.Button(button_frame, text='Compile', command=compile_pdf)
+    compile_button.pack(side=tk.RIGHT, padx=10)
+
+    submit_button = tk.Button(button_frame, text='Submit', command=submit_text, fg='#037aff')
+    submit_button.pack(side=tk.RIGHT, padx=10)
 
     root.mainloop()
