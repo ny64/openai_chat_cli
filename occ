@@ -3,28 +3,30 @@
 import datetime
 import json
 import os
-import subprocess
 import sys
 import tkinter as tk
 from tkinter import scrolledtext
 
 from openai import OpenAI
 
-client = OpenAI()
 
-CONFIG_PATH = "./config.json"
-CONVERSATIONS_DIRECTORY = "<set directory to store/save conversations>"
-SEP = "\n\n> " # Markdown separator string
-MODEL = "<set openai model (see https://platform.openai.com/docs/models/overview for more information)>"
-COST_PER_1000_TOKENS = 10/1000 # see https://openai.com/pricing
-
-
-def load_config():
-    with open(CONFIG_PATH, 'r') as file:
+def load_config(config_path):
+    with open(config_path, 'r') as file:
         return json.load(file)
 
 
-CONFIG = load_config()
+CONFIG_PATH = "./config.json"
+SEP = "\n\n> " # Markdown separator string
+CONFIG = load_config(CONFIG_PATH)
+if CONFIG['conv_dir'] == None:
+    CONVERSATIONS_DIRECTORY = "/home/" + os.getlogin() + "/Conversations" 
+else:
+    CONVERSATIONS_DIRECTORY = CONFIG['conv_dir']
+MODELS = tuple(CONFIG['models'])
+MODEL = MODELS[0]
+
+
+client = OpenAI()
 
 
 def append_message_to_conversation(conversation_id, sender, message, response=None):
@@ -34,9 +36,9 @@ def append_message_to_conversation(conversation_id, sender, message, response=No
     conversation_file = os.path.join(CONVERSATIONS_DIRECTORY, f"{conversation_id}.md")
 
     with open(conversation_file, 'a') as file:
-        file.write(f"{SEP}**{sender}:**\n\n {message}")
+        file.write(f"{SEP}**{sender}:**\n\n{message}")
         if response:
-            file.write(f"{SEP}**AI:**\n\n {response}")
+            file.write(f"{SEP}**AI:**\n\n{response}")
 
 
 def get_conversation_history(conversation_id):
@@ -46,16 +48,6 @@ def get_conversation_history(conversation_id):
             content = file.read().strip().split(SEP)
             return content
     return []
-
-
-def estimate_tokens(text):
-    return len(text) / 4
-
-
-def should_send_request(estimated_tokens):
-    estimated_cost = (estimated_tokens / 1000) * COST_PER_1000_TOKENS
-    print(f"Estimated cost for this message: ${estimated_cost:.5f}")
-    return estimated_cost <= 0.05 or input("Cost exceeds 5 cents. Proceed? (y/n): ").lower() == 'y'
 
 
 def handle_conversation(conversation_id, message):
@@ -71,31 +63,15 @@ def handle_conversation(conversation_id, message):
 
     messages_for_api.append({"role": "user", "content": message})
 
-    full_conversation_text = " ".join([m["content"] for m in messages_for_api])
-    estimated_tokens = estimate_tokens(full_conversation_text)
-
-    if not should_send_request(estimated_tokens):
-        print("Request not sent due to cost concerns.")
-        return
-
-    response = client.chat.completions.create(
+    response = client.responses.create(
         model=MODEL,
-        messages=messages_for_api,
-        temperature=CONFIG['temperature'],
-        max_tokens=CONFIG['max_tokens'],
-        top_p=CONFIG['top_p'],
-        frequency_penalty=CONFIG['frequency_penalty'],
-        presence_penalty=CONFIG['presence_penalty']
+        input=messages_for_api
     )
-    response_content = response.choices[0].message.content
+    response_content = response.output_text
 
     append_message_to_conversation(conversation_id, "User", message, response_content)
 
-    response_file = "response.md"
-    with open(response_file, 'w') as file:
-        file.write(f"{response_content}")
-    subprocess.run(["glow", response_file])
-    os.remove(response_file)
+    print(f"{SEP}**AI:**\n\n{response_content}")
 
 
 if __name__ == "__main__":
@@ -113,7 +89,9 @@ if __name__ == "__main__":
         history_file = "temp_conversation_history.md"
         with open(history_file, 'w') as file:
             file.write(SEP.join(conversation_history))
-        subprocess.run(["glow", history_file])
+        with open(history_file, 'r') as file:
+            content = file.read()
+            print(content)
         os.remove(history_file)
 
     # retrieve terminal size
@@ -129,15 +107,29 @@ if __name__ == "__main__":
         submit_button.config(state=tk.DISABLED)  # disable submit button
         user_input = text_area.get("1.0", tk.END)
         text_area.delete("1.0", tk.END)  # clear input
-        print(">", user_input)
+        print(f"{SEP}**User:**\n\n{user_input}")
         handle_conversation(conversation_id, user_input)
         submit_button.config(state=tk.NORMAL)
 
 
+    def change_model(new_model):
+        global MODEL
+        MODEL = new_model
+
+    # textarea
     text_area = scrolledtext.ScrolledText(root, width=10, height=10, wrap=tk.WORD)
     text_area.pack(padx=0, pady=0, fill=tk.BOTH, expand=True)
 
-    submit_button = tk.Button(root, text='Submit', command=submit_text)
-    submit_button.pack(side=tk.BOTTOM, pady=10)
+    # bottom action frame
+    control_frame = tk.Frame(root)
+    control_frame.pack(side=tk.BOTTOM, pady=10)
+
+    tk_model = tk.StringVar(root)
+    tk_model.set(MODEL)
+    dropdown = tk.OptionMenu(control_frame, tk_model, *MODELS, command=change_model)
+    dropdown.pack(side=tk.LEFT, padx=5)
+
+    submit_button = tk.Button(control_frame, text='Submit', command=submit_text)
+    submit_button.pack(side=tk.LEFT, padx=5)
 
     root.mainloop()

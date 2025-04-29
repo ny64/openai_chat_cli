@@ -5,7 +5,7 @@ Chat application in your terminal build with OpenAI and python3
 
 ## Setup
 
-1. Set <code>OPENAI_API_KEY</code> env variable.
-2. Set _conversation directory_, _model_ and _model cost_ in the <code>occ</code> script.
-3. Install <code>tkinter</code> and <code>openai</code> pip packages.
-4. Install [<code>glow</code> command line app](https://github.com/charmbracelet/glow) for markdown formatting or replace each <code>subprocess.run(["glow", response_file])</code> line with <code>print(response_file)</code>.
+1. Install <code>tkinter</code> and <code>openai</code> pip packages (see requirements.txt).
+2. Set <code>OPENAI_API_KEY</code> env variable.
+3. Set _CONFIG_PATH_ in the <code>occ</code> script (default is source folder <code>./config.json</code>).
+4. Customize <code>./config.json</code> (e.g. available models).
