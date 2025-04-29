@@ -7,8 +7,7 @@ Chat application in your terminal, built with OpenAI and Python 3
 
 - Conversational history saved in Markdown files
 - Multiple OpenAI model support (selectable at runtime)
-- **Attach files or code snippets to your prompt using `\att <filename> [from:to]` anywhere in your message**
-  - Attach whole files or specify a line range (e.g., `\att script.py 10:20`)
+- Attach files or code snippets to your prompt using `\att <filename> [from:to]` anywhere in your message
 - Clean Tkinter-based text input interface
 
 ## Setup
@@ -22,19 +21,11 @@ Chat application in your terminal, built with OpenAI and Python 3
 
 - Start the app from your terminal. You can supply a conversation ID or let the script auto-generate one.
 - Enter your prompt in the window and submit.
-- **To include a file’s contents in your prompt, type**  
+- To include a file’s contents in your prompt, type  
   ```  
   \att path/to/file.txt [from:to]
   ```
   anywhere in your message.  
    - `from:to` is optional (line numbers, inclusive, 1-based).  
    - You can use multiple `\att ...` commands; each will get replaced with the content of the given file or line range, embedded in your message.
-- Example prompts:
-  ```
-  Please review this code:
-  \att myscript.py 20:35
-
-  And also look at my configuration:
-  \att config.json
-  ```
-- The file content and an indicator line are inserted inline in your message, before being sent to the model.
+   - The file content and an indicator line are inserted inline in your message, before being sent to the model.
