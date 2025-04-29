@@ -3,6 +3,7 @@
 import datetime
 import json
 import os
+import re
 import sys
 import tkinter as tk
 from tkinter import scrolledtext
@@ -16,23 +17,21 @@ def load_config(config_path):
 
 
 CONFIG_PATH = "./config.json"
-SEP = "\n\n> " # Markdown separator string
+SEP = "\n\n> "  # Markdown separator string
 CONFIG = load_config(CONFIG_PATH)
-if CONFIG['conv_dir'] == None:
-    CONVERSATIONS_DIRECTORY = "/home/" + os.getlogin() + "/Conversations" 
+if CONFIG['conv_dir'] is None:
+    CONVERSATIONS_DIRECTORY = "/home/" + os.getlogin() + "/Conversations"
 else:
     CONVERSATIONS_DIRECTORY = CONFIG['conv_dir']
 MODELS = tuple(CONFIG['models'])
 MODEL = MODELS[0]
 
-
 client = OpenAI()
 
 
 def append_message_to_conversation(conversation_id, sender, message, response=None):
-
+    """Appends message/response pairs to a Markdown conversation file."""
     os.makedirs(CONVERSATIONS_DIRECTORY, exist_ok=True)
-
     conversation_file = os.path.join(CONVERSATIONS_DIRECTORY, f"{conversation_id}.md")
 
     with open(conversation_file, 'a') as file:
@@ -42,6 +41,7 @@ def append_message_to_conversation(conversation_id, sender, message, response=No
 
 
 def get_conversation_history(conversation_id):
+    """Retrieves the entire conversation from a Markdown file, split by SEP."""
     conversation_file = os.path.join(CONVERSATIONS_DIRECTORY, f"{conversation_id}.md")
     if os.path.exists(conversation_file):
         with open(conversation_file, 'r') as file:
@@ -50,7 +50,58 @@ def get_conversation_history(conversation_id):
     return []
 
 
+def parse_attachment_command(user_input):
+    """
+    Scans user_input for all occurrences of \att <file> [from:to]
+    and replaces them in-place with their file contents and indicators.
+    Returns the new message and None (for API compatibility).
+    """
+    # Regex: \att <file> [from:to]
+    att_pattern = re.compile(
+        r"""\\att\s+      # literal \att, spaces
+        ([^\s]+)          # group 1: nonspace = filename
+        (?:\s+(\d+:\d+))? # optional: spaces, group 2: digits:digits
+        """,
+        re.VERBOSE
+    )
+
+    def att_replacer(match):
+        file_path = match.group(1)
+        line_range = match.group(2)
+        if not os.path.isfile(file_path):
+            return f"(Error: File {file_path} not found.)"
+        try:
+            with open(file_path, 'r') as f:
+                lines = f.readlines()
+                if line_range:
+                    frm, to = line_range.split(':')
+                    frm_idx = int(frm) - 1 if frm.isdigit() else 0
+                    to_idx = int(to) if to.isdigit() else len(lines)
+                    selected_lines = lines[frm_idx:to_idx]
+                    attached_text = "".join(selected_lines)
+                    range_str = f" [lines {frm}-{to}]"
+                else:
+                    attached_text = "".join(lines)
+                    range_str = ""
+        except Exception as e:
+            return f"(Error reading file {file_path}: {e})"
+        indicator = f"(Attached from {file_path}{range_str})\n\n"
+        return f"{indicator}{attached_text}"
+
+    replaced = re.sub(att_pattern, att_replacer, user_input)
+    return replaced, None
+
+
 def handle_conversation(conversation_id, message):
+    """
+    Handles the conversation flow:
+      1. Retrieve conversation history
+      2. Build messages_for_api
+      3. Send to the LLM
+      4. Append user & AI messages to file
+    """
+
+    # 1. Retrieve conversation history
     conversation_history = get_conversation_history(conversation_id)
     messages_for_api = [{"role": "assistant", "content": CONFIG['system_message']}]
     for entry in conversation_history:
@@ -61,29 +112,38 @@ def handle_conversation(conversation_id, message):
         elif "AI" in sender:
             messages_for_api.append({"role": "assistant", "content": content})
 
-    messages_for_api.append({"role": "user", "content": message})
+    # 2. Check if user message is an attachment command
+    processed_message, attached_content = parse_attachment_command(message)
+    # We won't use attached_content separately here, but you could if you want.
 
+    # 3. Add the user message to messages_for_api
+    messages_for_api.append({"role": "user", "content": processed_message})
+
+    # 4. Send to the LLM
     response = client.responses.create(
         model=MODEL,
         input=messages_for_api
     )
     response_content = response.output_text
 
-    append_message_to_conversation(conversation_id, "User", message, response_content)
+    # 5. Append user & AI messages to file
+    append_message_to_conversation(conversation_id, "User", processed_message, response_content)
 
     print(f"{SEP}**AI:**\n\n{response_content}")
 
 
 if __name__ == "__main__":
+    # Handle command-line arguments
     if len(sys.argv) < 2:
         conversation_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         print(f"No conversation ID provided, using ID: {conversation_id}")
     elif len(sys.argv) == 2:
         conversation_id = sys.argv[1]
     else:
-        print("Usage: turbo [<conversation_id>]. Omit <conversation_id> to auto generate id.")
+        print("Usage: turbo [<conversation_id>]. Omit <conversation_id> to auto-generate an ID.")
         sys.exit(1)
 
+    # If there is an existing conversation, show it
     conversation_history = get_conversation_history(conversation_id)
     if conversation_history:
         history_file = "temp_conversation_history.md"
@@ -94,33 +154,35 @@ if __name__ == "__main__":
             print(content)
         os.remove(history_file)
 
-    # retrieve terminal size
-    rows, columns = os.popen('stty size', 'r').read().split()
+    # Try to retrieve terminal size for setting Tk geometry
+    try:
+        rows, columns = os.popen('stty size', 'r').read().split()
+    except ValueError:
+        # Fallback if we can't retrieve
+        rows, columns = 24, 80
 
-    # create textarea for input
     root = tk.Tk()
     root.title('OCC Text Input')
+    # Some rough resizing based on terminal columns
     root.geometry(f"{int(int(columns) * 7.1)}x220+0+{int(int(rows) * 16.8)}")
 
-
     def submit_text():
-        submit_button.config(state=tk.DISABLED)  # disable submit button
+        submit_button.config(state=tk.DISABLED)  # disable submit button to prevent rapid re-click
         user_input = text_area.get("1.0", tk.END)
         text_area.delete("1.0", tk.END)  # clear input
         print(f"{SEP}**User:**\n\n{user_input}")
         handle_conversation(conversation_id, user_input)
         submit_button.config(state=tk.NORMAL)
 
-
     def change_model(new_model):
         global MODEL
         MODEL = new_model
 
-    # textarea
+    # Create the scrolled text area
     text_area = scrolledtext.ScrolledText(root, width=10, height=10, wrap=tk.WORD)
     text_area.pack(padx=0, pady=0, fill=tk.BOTH, expand=True)
 
-    # bottom action frame
+    # Bottom bar with model dropdown and submit button
     control_frame = tk.Frame(root)
     control_frame.pack(side=tk.BOTTOM, pady=10)
 
@@ -132,4 +194,5 @@ if __name__ == "__main__":
     submit_button = tk.Button(control_frame, text='Submit', command=submit_text)
     submit_button.pack(side=tk.LEFT, padx=5)
 
+    # Start Tk main loop
     root.mainloop()
