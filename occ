@@ -1,8 +1,9 @@
-#!/usr/bin/env python3
+#!/home/peacock/Code/openai_chat_cli/venv/bin/python3
 
 import datetime
 import json
 import os
+import getpass
 import re
 import sys
 import tkinter as tk
@@ -16,11 +17,11 @@ def load_config(config_path):
         return json.load(file)
 
 
-CONFIG_PATH = "./config.json"
+CONFIG_PATH = "/home/peacock/Code/openai_chat_cli/config.json"
 SEP = "\n\n> "  # Markdown separator string
 CONFIG = load_config(CONFIG_PATH)
 if CONFIG['conv_dir'] is None:
-    CONVERSATIONS_DIRECTORY = "/home/" + os.getlogin() + "/Conversations"
+    CONVERSATIONS_DIRECTORY = "/home/" + getpass.getuser() + "/Conversations"
 else:
     CONVERSATIONS_DIRECTORY = CONFIG['conv_dir']
 MODELS = tuple(CONFIG['models'])
