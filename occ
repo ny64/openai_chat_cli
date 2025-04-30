@@ -26,6 +26,7 @@ else:
     CONVERSATIONS_DIRECTORY = CONFIG['conv_dir']
 MODELS = tuple(CONFIG['models'])
 MODEL = MODELS[0]
+QUICK_MODEL = CONFIG['quick_model']
 
 client = OpenAI()
 
@@ -134,6 +135,24 @@ def handle_conversation(conversation_id, message):
 
 
 if __name__ == "__main__":
+    # QUICK-REPLY MODE
+    # Usage: turbo -q "Your question here"
+    #    or turbo --quick Your question here
+    if len(sys.argv) >= 3 and sys.argv[1] in ("-q", "--quick"):
+        quick_msg = " ".join(sys.argv[2:])
+        processed_msg, _ = parse_attachment_command(quick_msg)
+        messages_for_api = [
+            {"role": "assistant", "content": CONFIG["system_message"]},
+            {"role": "user",      "content": processed_msg},
+        ]
+        response = client.responses.create(
+            model=QUICK_MODEL,
+            instructions=CONFIG["quick_model_instruction"],
+            input=messages_for_api
+        )
+        print(response.output_text)
+        sys.exit(0)    
+
     # Handle command-line arguments
     if len(sys.argv) < 2:
         conversation_id = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
@@ -141,7 +160,7 @@ if __name__ == "__main__":
     elif len(sys.argv) == 2:
         conversation_id = sys.argv[1]
     else:
-        print("Usage: turbo [<conversation_id>]. Omit <conversation_id> to auto-generate an ID.")
+        print("Usage: turbo [<conversation_id>]  or  turbo -q|--quick <message>")
         sys.exit(1)
 
     # If there is an existing conversation, show it
