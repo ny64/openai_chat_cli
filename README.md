@@ -30,7 +30,7 @@ Chat application in your terminal, built with OpenAI and Python 3
 occ
 
 # Or resume an existing conversation by ID:
-occ 20250314123000
+occ my_conversation
 ```
 - A Tkinter window will pop up for you to type and submit prompts.
 - All prompts & replies are appended to `~/Conversations/<ID>.md`.
