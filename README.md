@@ -56,7 +56,7 @@ Here’s my code: \att path/to/script.py 5:10
 ```
 
 - `\att <file>` inserts the entire file.
-- `\att <file> from:to` inserts only lines `from` through `to` (1-based, inclusive).
+- `\att <file> from:to` inserts only lines `from` through `to` (1-based, inclusive, ommit if you want to attach the whole file).
 
 ## config.json
 
