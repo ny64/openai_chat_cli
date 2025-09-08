@@ -30,7 +30,7 @@ Chat application in your terminal, built with OpenAI and Python 3
 occ
 
 # Or resume an existing conversation by ID:
-occ 20250314123000
+occ my_conversation
 ```
 - A Tkinter window will pop up for you to type and submit prompts.
 - All prompts & replies are appended to `~/Conversations/<ID>.md`.
@@ -56,7 +56,7 @@ Here’s my code: \att path/to/script.py 5:10
 ```
 
 - `\att <file>` inserts the entire file.
-- `\att <file> from:to` inserts only lines `from` through `to` (1-based, inclusive).
+- `\att <file> from:to` inserts only lines `from` through `to` (1-based, inclusive, ommit if you want to attach the whole file).
 
 ## config.json
 
