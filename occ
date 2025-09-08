@@ -16,6 +16,7 @@ def load_config(config_path):
     with open(config_path, 'r') as file:
         return json.load(file)
 
+client = OpenAI()
 
 CONFIG_PATH = "/home/peacock/Code/openai_chat_cli/config.json"
 SEP = "\n\n> "  # Markdown separator string
@@ -24,12 +25,11 @@ if CONFIG['conv_dir'] is None:
     CONVERSATIONS_DIRECTORY = "/home/" + getpass.getuser() + "/Conversations"
 else:
     CONVERSATIONS_DIRECTORY = CONFIG['conv_dir']
-MODELS = tuple(CONFIG['models'])
+MODELS = CONFIG['models']
+if not MODELS:
+    MODELS = [model.id for model in client.models.list()]
 MODEL = MODELS[0]
 QUICK_MODEL = CONFIG['quick_model']
-
-client = OpenAI()
-
 
 def append_message_to_conversation(conversation_id, sender, message, response=None):
     """Appends message/response pairs to a Markdown conversation file."""

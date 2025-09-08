@@ -1,7 +1,7 @@
 {
-  "models": ["gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "o4-mini", "o1"],
+  "models": [],
   "system_message": "Hello! I'm your assistant. How can I help you today?",
-  "quick_model": "gpt-4.1-mini",
-  "quick_model_instruction": "You will have only one response, after which the conversation will be over. If you are asked to solve some coding question that can be solved with a one-liner, only return that line.",
+  "quick_model": "gpt-5-mini",
+  "quick_model_instruction": "You will have only one response, after which the conversation will be over, therfor there is no point in asking followup questions. Construct your responses accordingly. If you are asked to solve some coding question that can be solved with a one-liner, only return that line.",
   "conv_dir": null 
 }
